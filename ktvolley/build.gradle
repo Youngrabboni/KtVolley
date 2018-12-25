@@ -1,5 +1,7 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
+apply plugin: 'maven-publish'
+apply plugin: 'com.jfrog.bintray'
 
 android {
     compileSdkVersion 26
@@ -19,12 +21,63 @@ android {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:0.20'
 
-    implementation 'com.android.volley:volley:1.1.0'
+    implementation 'com.android.volley:volley:1.1.1'
 
-    implementation 'com.fasterxml.jackson.core:jackson-core:2.7.0'
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.7.0'
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.9.5'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.9.5'
+}
+
+publishing {
+    publications {
+        LibPublication(MavenPublication) {
+            groupId 'com.diamondedge'
+            artifactId 'ktvolley'
+            version '2.0'
+
+            artifact("$buildDir/outputs/aar/${project.getName()}-release.aar")
+            artifact androidSourcesJar
+            pom.withXml {
+                def dependencies = asNode().appendNode('dependencies')
+                configurations.api.allDependencies.each {
+                    def dependency = dependencies.appendNode('dependency')
+                    dependency.appendNode('groupId', it.group)
+                    dependency.appendNode('artifactId', it.name)
+                    dependency.appendNode('version', it.version)
+                }
+            }
+        }
+    }
+}
+
+bintray {
+    user = "$bintray_user"
+    key = "$bintray_key"
+    publications = ['LibPublication']
+    dryRun = true
+    pkg {
+        repo = 'diamondedge'
+        name = 'KtVolley'
+//        description = "An example of using the bintray plugin with gradle plugin 3.0.0"
+        publish = true
+        publicDownloadNumbers = true
+        licenses = ['Apache-2.0']
+        vcsUrl = 'https://github.com/bintray/gradle-bintray-plugin.git'
+        dryRun = true
+        version {
+            name = this.version
+            desc = "KtVolley ${this.version}"
+            released = new Date()
+            vcsTag = this.version
+        }
+    }
+
+}
+
+task androidSourcesJar(type: Jar) {
+    classifier = 'sources'
+    from android.sourceSets.main.java.srcDirs
 }

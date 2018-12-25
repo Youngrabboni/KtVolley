@@ -11,7 +11,7 @@ class MyRequest<T>(cls: Class<T>) : NetworkRequest<T>(cls) {
 
     private var errCode: String = ""
 
-    /** overriden so MyRestRequest specific methods could be called after the path() is called
+    /** override so MyRestRequest specific methods could be called after the path() is called
      */
     override fun path(path: String): MyRequest<T> {
         return super.path(path) as MyRequest<T>

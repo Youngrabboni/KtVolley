@@ -18,6 +18,7 @@ abstract class BaseVolleyRequest<T>(method: Int, url: String, protected val cls:
 
     var bodyParams: Map<String, String>? = null
     //    private var params: Map<String, String>?
+    var responseStatusCode = 0
 
     @Throws(AuthFailureError::class)
     override fun getHeaders(): Map<String, String> {

@@ -7,29 +7,26 @@ import java.io.UnsupportedEncodingException
 import java.nio.charset.Charset
 import java.util.*
 
-/**
- */
-abstract class NetworkRequest<T>(private val cls: Class<T>) : Response.Listener<T>, Response.ErrorListener {
+typealias ResponseListener<T> = (result: Result<T>) -> Unit
+
+abstract class NetworkRequest<T>(private val cls: Class<T>) {
 
     private var path: String = ""
-    protected var headers: MutableMap<String, String>? = null
+    private var headers: MutableMap<String, String>? = null
     private var queryParams: MutableMap<String, String>? = null
     private var bodyParams: MutableMap<String, String>? = null
     private var jsonBodyAttributes: MutableMap<String, Any>? = null
-    protected val acceptType = JSON_MEDIA_TYPE
+    private val acceptType = JSON_MEDIA_TYPE
     private var contentType = JSON_MEDIA_TYPE
     private var timeout = -1
     private var maxRetryCount = -1
     private var retryPolicy: RetryPolicy? = null
     private var useCache = true
     private var tag: String? = null
-    private var listener: Response.Listener<T>? = null
-    private var errorListener: ErrorListener? = null
     private var body: Any? = null
-
     private var priority = Request.Priority.HIGH
 
-    protected val url: String
+    private val url: String
         get() {
             if (queryParams != null && queryParams!!.isNotEmpty()) {
                 val s = StringBuilder(path)
@@ -166,23 +163,16 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) : Response.Listener<
     fun getBody(): Any? {
         if (body != null)
             return body
-        if (jsonBodyAttributes != null) {
-            try {
-                val json = JSONObject()
-                for ((key, value) in jsonBodyAttributes!!) {
-                    json.put(key, value)
-                }
-                return json
-            } catch (ex: Exception) {
-                errorListener?.onErrorResponse(createError(ex, url))
+        val bodyAttributes = jsonBodyAttributes
+        if (bodyAttributes != null) {
+            val json = JSONObject()
+            for ((key, value) in bodyAttributes) {
+                json.putOpt(key, value)
             }
-
+            return json
         }
         return null
     }
-
-    abstract fun createError(ex: Exception, url: String): KtVolleyError
-    abstract fun createError(error: VolleyError, url: String, requestBody: Any?, requestHeaders: Map<String, String>?): KtVolleyError
 
     @JvmOverloads
     fun body(body: Any, contentType: String? = null): NetworkRequest<T> {
@@ -193,27 +183,31 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) : Response.Listener<
         return this
     }
 
-    override fun onResponse(response: T) {
-        listener?.onResponse(response)
-        listener = null
-        errorListener = null
+    open fun createError(ex: Exception, url: String): KtVolleyError {
+        return BasicError(ex, url)
     }
 
-    override fun onErrorResponse(error: VolleyError) {
-        if (errorListener != null) {
-            var body = getBody()
-            if (bodyParams != null)
-                body = if (body == null) bodyParams.toString() else body.toString() + " params: " + bodyParams.toString()
-            errorListener?.onErrorResponse(createError(error, url, body, headers))
-        }
-        listener = null
-        errorListener = null
+    open fun createError(error: VolleyError, url: String, requestBody: Any?, requestHeaders: Map<String, String>?): KtVolleyError {
+        return BasicError(error, url, requestBody, requestHeaders)
     }
 
-    protected fun createRequest(httpVerb: Int, listener: Response.Listener<T>, errorListener: ErrorListener): Request<T> {
-        this.listener = listener
-        this.errorListener = errorListener
-        val request = createVolleyRequest(httpVerb, url, cls, priority, getContentType(), headers, bodyParams, getBody(), this, this)
+    open fun createResult(response: T?, error: KtVolleyError?, statusCode: Int): Result<T> {
+        return Result(response, error, statusCode)
+    }
+
+    private fun createRequest(httpVerb: Int, listener: ResponseListener<T>): Request<T> {
+        var request: Request<T>? = null
+        request = createVolleyRequest(httpVerb, url, cls, priority, getContentType(), headers, bodyParams, getBody(),
+                Response.Listener { response ->
+                    listener.invoke(createResult(response, null, (request as? BaseVolleyRequest)?.responseStatusCode
+                            ?: 0))
+                },
+                Response.ErrorListener { error ->
+                    var body = getBody()
+                    if (bodyParams != null)
+                        body = if (body == null) bodyParams.toString() else body.toString() + " params: " + bodyParams.toString()
+                    listener.invoke(createResult(null, createError(error, url, body, headers), error.networkResponse.statusCode))
+                })
         request.setShouldCache(useCache)
         if (tag != null)
             request.setTag(tag)
@@ -227,29 +221,29 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) : Response.Listener<
             retryPolicy = DefaultRetryPolicy(timeoutVal, retryCount, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT)
         }
         if (retryPolicy != null)
-            request.setRetryPolicy(retryPolicy)
+            request.retryPolicy = retryPolicy
         return request
     }
 
     abstract fun createVolleyRequest(httpVerb: Int, url: String, cls: Class<T>, priority: Request.Priority, contentType: String, headers: MutableMap<String, String>?, params: Map<String, String>?, body: Any?, listener: Response.Listener<T>, errorListener: Response.ErrorListener): Request<T>
 
-    operator fun get(listener: Response.Listener<T>, errorListener: ErrorListener): Request<T> {
+    fun get(listener: ResponseListener<T>): Request<T> {
         if (!hasHeader("Accept")) {
             header("Accept", acceptType)
         }
-        return createRequest(Request.Method.GET, listener, errorListener)
+        return createRequest(Request.Method.GET, listener)
     }
 
-    fun post(listener: Response.Listener<T>, errorListener: ErrorListener): Request<T> {
-        return createRequest(Request.Method.POST, listener, errorListener)
+    fun post(listener: ResponseListener<T>): Request<T> {
+        return createRequest(Request.Method.POST, listener)
     }
 
-    fun put(listener: Response.Listener<T>, errorListener: ErrorListener): Request<T> {
-        return createRequest(Request.Method.PUT, listener, errorListener)
+    fun put(listener: ResponseListener<T>): Request<T> {
+        return createRequest(Request.Method.PUT, listener)
     }
 
-    fun delete(listener: Response.Listener<T>, errorListener: ErrorListener): Request<T> {
-        return createRequest(Request.Method.DELETE, listener, errorListener)
+    fun delete(listener: ResponseListener<T>): Request<T> {
+        return createRequest(Request.Method.DELETE, listener)
     }
 
     companion object {

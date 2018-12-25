@@ -4,24 +4,27 @@
 */
 package com.diamondedge.ktvolley
 
-import com.android.volley.Response
 import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.selects.SelectClause1
 import kotlin.coroutines.experimental.CoroutineContext
 import kotlin.coroutines.experimental.suspendCoroutine
 
-inline suspend fun <T> bg(crossinline callback: (Response.Listener<T>, ErrorListener) -> Unit): KvDeferredCoroutine<T> {
+suspend inline fun <T> bg(crossinline callback: (ResponseListener<T>) -> Unit): KvDeferredCoroutine<T> {
     var job: KvDeferredCoroutine<T>? = null
     job = kvAsync {
         job?.result = try {
             suspendCoroutine { cont ->
-                callback(Response.Listener { result: T ->
-                    cont.resume(Result(result, null))
-                }, object : ErrorListener {
-                    override fun onErrorResponse(error: KtVolleyError) {
-                        cont.resumeWithException(if (error is Exception) error else error.exception)
+                callback { result ->
+                    if (result.isSuccess())
+                        cont.resume(result)
+                    else {
+                        val exception = if (result.error is Exception) result.error else result.error?.exception
+                        if (exception != null)
+                            cont.resumeWithException(exception)
+                        else
+                            cont.resume(result)
                     }
-                })
+                }
             }
         } catch (e: Exception) {
             Result(null, e as? KtVolleyError)
@@ -57,7 +60,7 @@ class KvDeferredCoroutine<T>(parentContext: CoroutineContext, active: Boolean)
         }
     }
 
-    suspend override fun await(): Result<T> {
+    override suspend fun await(): Result<T> {
         awaitInternal()
         return result ?: Result<T>(null, null)
     }

@@ -1,18 +1,12 @@
 package com.diamondedge.ktvolley
 
-import android.util.Log
 import com.android.volley.*
 import com.android.volley.Response.ErrorListener
 import com.android.volley.Response.Listener
 import com.android.volley.toolbox.HttpHeaderParser
-import com.fasterxml.jackson.core.JsonParseException
-import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.json.JSONArray
-import org.json.JSONException
 import org.json.JSONObject
-import java.io.IOException
-import java.io.UnsupportedEncodingException
 import java.nio.charset.Charset
 
 /**
@@ -48,39 +42,30 @@ class JacksonVolleyRequest<T>(method: Int, url: String, cls: Class<T>, headers: 
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun parseNetworkResponse(response: NetworkResponse): Response<T> {
         try {
             val strData = String(response.data, Charset.forName(HttpHeaderParser.parseCharset(response.headers)))
-            Log.i("JsonVolleyRequest", "parseNetworkResponse: " + strData.length / 1000 + "K " + getUrl())
-            var result: T? = null
-            if (response.data == null || response.data.isEmpty()) {   // http code 204 returns no body
-                result = null
-            } else if (cls == null || cls == String::class.java) {
-                result = createStringResponse(response) as T
-            } else if (cls == JSONObject::class.java) {
-                result = JSONObject(createStringResponse(response)) as T
-            } else if (cls == JSONArray::class.java) {
-                result = JSONArray(createStringResponse(response)) as T
+            responseStatusCode = response.statusCode
+//            Log.i("JsonVolleyRequest", "parseNetworkResponse: " + strData.length / 1000 + "K " + getUrl())
+            val result = if (response.data == null || response.data.isEmpty()) {
+                //TODO: should this be null or newInstance()?
+                cls.newInstance()   // http code 204 returns no body, so create empty instance
             } else {
-                result = objectMapper.readValue<T>(strData, cls)
+                when (cls) {
+                    String::class.java -> createStringResponse(response) as T
+                    JSONObject::class.java -> JSONObject(createStringResponse(response)) as T
+                    JSONArray::class.java -> JSONArray(createStringResponse(response)) as T
+                    else -> objectMapper.readValue<T>(strData, cls)
+                }
             }
 
             return Response.success(result, HttpHeaderParser.parseCacheHeaders(response))
 
-        } catch (e: UnsupportedEncodingException) {
-            return Response.error(ParseError(e))
-        } catch (je: JSONException) {
-            return Response.error(ParseError(je))
-        } catch (e: JsonMappingException) {
-            return Response.error(ParseError(e))
-        } catch (e: JsonParseException) {
-            return Response.error(ParseError(e))
-        } catch (e: IOException) {
-            return Response.error(ParseError(e))
-        } catch (e: Exception) {
+
+        } catch (e: Throwable) {
             return Response.error(ParseError(e))
         }
-
     }
 
     companion object {
