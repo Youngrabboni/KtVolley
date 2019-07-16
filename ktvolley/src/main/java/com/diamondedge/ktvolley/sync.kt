@@ -1,6 +1,8 @@
 package com.diamondedge.ktvolley
 
-import kotlin.coroutines.experimental.suspendCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 suspend inline fun <T> sync(crossinline callback: (ResponseListener<T>) -> Unit) =
         try {

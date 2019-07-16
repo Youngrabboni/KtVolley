@@ -4,6 +4,7 @@
 */
 package com.diamondedge.ktvolley
 
+/*
 import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.selects.SelectClause1
 import kotlin.coroutines.experimental.CoroutineContext
@@ -68,3 +69,4 @@ class KvDeferredCoroutine<T>(parentContext: CoroutineContext, active: Boolean)
     override val onAwait: SelectClause1<Result<T>>
         get() = this as SelectClause1<Result<T>>
 }
+*/

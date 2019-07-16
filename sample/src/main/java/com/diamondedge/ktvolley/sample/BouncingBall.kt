@@ -10,8 +10,9 @@ import android.graphics.drawable.shapes.OvalShape
 import android.os.Handler
 import android.util.AttributeSet
 import android.util.TypedValue
+import androidx.appcompat.widget.AppCompatImageView
 
-class BouncingBall(context: Context, attrs: AttributeSet) : android.support.v7.widget.AppCompatImageView(context, attrs) {
+class BouncingBall(context: Context, attrs: AttributeSet) : AppCompatImageView(context, attrs) {
     private var ballX = 0f
     private var ballY = 0f
     private var speedX = 20f

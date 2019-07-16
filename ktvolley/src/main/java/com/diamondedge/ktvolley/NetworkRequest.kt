@@ -25,6 +25,7 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
     private var tag: String? = null
     private var body: Any? = null
     private var priority = Request.Priority.HIGH
+    protected var isList = false
 
     private val url: String
         get() {
@@ -72,6 +73,11 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
 
     fun useCache(shouldCache: Boolean): NetworkRequest<T> {
         this.useCache = shouldCache
+        return this
+    }
+
+    fun isList(isList: Boolean): NetworkRequest<T> {
+        this.isList = isList
         return this
     }
 
@@ -199,14 +205,20 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
         var request: Request<T>? = null
         request = createVolleyRequest(httpVerb, url, cls, priority, getContentType(), headers, bodyParams, getBody(),
                 Response.Listener { response ->
-                    listener.invoke(createResult(response, null, (request as? BaseVolleyRequest)?.responseStatusCode
-                            ?: 0))
+                    listener.invoke(
+                        createResult(
+                            response,
+                            null,
+                            (request as? BaseVolleyRequest)?.responseStatusCode ?: 0
+                        )
+                    )
                 },
                 Response.ErrorListener { error ->
                     var body = getBody()
                     if (bodyParams != null)
                         body = if (body == null) bodyParams.toString() else body.toString() + " params: " + bodyParams.toString()
-                    listener.invoke(createResult(null, createError(error, url, body, headers), error.networkResponse.statusCode))
+                    val statusCode = error.networkResponse?.statusCode ?: 520
+                    listener.invoke(createResult(null, createError(error, url, body, headers), statusCode))
                 })
         request.setShouldCache(useCache)
         if (tag != null)
