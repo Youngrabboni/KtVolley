@@ -3,6 +3,7 @@ package com.diamondedge.ktvolley
 import com.android.volley.*
 import com.android.volley.toolbox.HttpHeaderParser
 import org.json.JSONObject
+import timber.log.Timber
 import java.io.UnsupportedEncodingException
 import java.nio.charset.Charset
 import java.util.*
@@ -26,6 +27,8 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
     private var body: Any? = null
     private var priority = Request.Priority.HIGH
     protected var isList = false
+    private var logtag: String? = null
+    private var logname: String? = null
 
     private val url: String
         get() {
@@ -151,6 +154,12 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
         return this
     }
 
+    fun logging(tag: String, name: String?): NetworkRequest<T> {
+        this.logtag = tag
+        this.logname = name
+        return this
+    }
+
     fun timeout(msTimeout: Int): NetworkRequest<T> {
         timeout = msTimeout
         return this
@@ -193,7 +202,12 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
         return BasicError(ex, url)
     }
 
-    open fun createError(error: VolleyError, url: String, requestBody: Any?, requestHeaders: Map<String, String>?): KtVolleyError {
+    open fun createError(
+        error: VolleyError,
+        url: String,
+        requestBody: Any?,
+        requestHeaders: Map<String, String>?
+    ): KtVolleyError {
         return BasicError(error, url, requestBody, requestHeaders)
     }
 
@@ -202,24 +216,25 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
     }
 
     private fun createRequest(httpVerb: Int, listener: ResponseListener<T>): Request<T> {
-        var request: Request<T>? = null
+        var request: BaseVolleyRequest<T>? = null
         request = createVolleyRequest(httpVerb, url, cls, priority, getContentType(), headers, bodyParams, getBody(),
-                Response.Listener { response ->
-                    listener.invoke(
-                        createResult(
-                            response,
-                            null,
-                            (request as? BaseVolleyRequest)?.responseStatusCode ?: 0
-                        )
+            Response.Listener { response ->
+                listener.invoke(
+                    createResult(
+                        response,
+                        null,
+                        request?.responseStatusCode ?: 0
                     )
-                },
-                Response.ErrorListener { error ->
-                    var body = getBody()
-                    if (bodyParams != null)
-                        body = if (body == null) bodyParams.toString() else body.toString() + " params: " + bodyParams.toString()
-                    val statusCode = error.networkResponse?.statusCode ?: 520
-                    listener.invoke(createResult(null, createError(error, url, body, headers), statusCode))
-                })
+                )
+            },
+            Response.ErrorListener { error ->
+                var body = getBody()
+                if (bodyParams != null)
+                    body =
+                        if (body == null) bodyParams.toString() else body.toString() + " params: " + bodyParams.toString()
+                val statusCode = error.networkResponse?.statusCode ?: 520
+                listener.invoke(createResult(null, createError(error, url, body, headers), statusCode))
+            })
         request.setShouldCache(useCache)
         if (tag != null)
             request.setTag(tag)
@@ -234,10 +249,26 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
         }
         if (retryPolicy != null)
             request.retryPolicy = retryPolicy
+
+        logtag?.let { tag ->
+            request.setLogging(tag, logname)
+            logNetworkRequest(tag, logname, request)
+        }
         return request
     }
 
-    abstract fun createVolleyRequest(httpVerb: Int, url: String, cls: Class<T>, priority: Request.Priority, contentType: String, headers: MutableMap<String, String>?, params: Map<String, String>?, body: Any?, listener: Response.Listener<T>, errorListener: Response.ErrorListener): Request<T>
+    abstract fun createVolleyRequest(
+        httpVerb: Int,
+        url: String,
+        cls: Class<T>,
+        priority: Request.Priority,
+        contentType: String,
+        headers: MutableMap<String, String>?,
+        params: Map<String, String>?,
+        body: Any?,
+        listener: Response.Listener<T>,
+        errorListener: Response.ErrorListener
+    ): BaseVolleyRequest<T>
 
     fun get(listener: ResponseListener<T>): Request<T> {
         if (!hasHeader("Accept")) {
@@ -259,7 +290,6 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
     }
 
     companion object {
-        val TAG = "NetworkRequest"
         private val JSON_MEDIA_TYPE = "application/json"
 
         @Throws(UnsupportedEncodingException::class)
@@ -270,13 +300,37 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
         }
 
         // see Request.Method in volley, these are the only ones we care about
-        fun getRequestMethodName(method: Int): String {
-            when (method) {
-                Request.Method.GET -> return "GET"
-                Request.Method.POST -> return "POST"
-                Request.Method.PUT -> return "PUT"
-                Request.Method.DELETE -> return "DELETE"
-                else -> return "UNKNOWN: " + method
+        private fun getRequestMethodName(method: Int): String {
+            return when (method) {
+                Request.Method.GET -> "GET"
+                Request.Method.POST -> "POST"
+                Request.Method.PUT -> "PUT"
+                Request.Method.DELETE -> "DELETE"
+                else -> "UNKNOWN: $method"
+            }
+        }
+
+        fun <T> logNetworkRequest(tag: String, name: String?, request: Request<T>) {
+            try {
+                Timber.tag(tag).i(
+                    "%s%s %s",
+                    if (name == null) "" else "$name: ",
+                    getRequestMethodName(request.method),
+                    request.url
+                )
+                val headers = request.headers
+                for (key in headers.keys) {
+                    Timber.tag(tag).v("  %s: %s", key, headers[key])
+                }
+                if (request.bodyContentType != null)
+                    Timber.tag(tag).v("  Content-Type: %s", request.bodyContentType)
+                val bodyBytes = request.body
+                if (bodyBytes != null && bodyBytes.size > 0) {
+                    val body = String(bodyBytes, Charset.forName("UTF-8"))
+                    Timber.tag(tag).d(body)
+                }
+            } catch (ex: Exception) {
+                Timber.tag(tag).e(ex, "error logging request")
             }
         }
     }

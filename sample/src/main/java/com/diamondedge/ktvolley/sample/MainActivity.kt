@@ -1,11 +1,11 @@
 package com.diamondedge.ktvolley.sample
 
 import android.os.Bundle
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import com.diamondedge.ktvolley.ResponseListener
 import com.diamondedge.ktvolley.sync
 import kotlinx.coroutines.*
+import timber.log.Timber
 
 class MainActivity : AppCompatActivity() {
 
@@ -15,6 +15,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<BouncingBall>(R.id.anim_view).setOnClickListener {
             runTest()
         }
+        Timber.plant(Timber.DebugTree())
     }
 
     override fun onStart() {
@@ -29,7 +30,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun log(msg: String) {
-        Log.d(TAG, msg)
+        Timber.d(msg)
     }
 
     fun testParallel() {
@@ -217,9 +218,9 @@ class MainActivity : AppCompatActivity() {
         val url = "https://www.reddit.com/bogus.json?limit=10"
         log("$tag reddit: url: $url")
         val request = MyRequest.create<String>()
-                .path(url)
-                .errorCode("12")
-                .get(listener)
+            .path(url)
+            .errorCode("12")
+            .get(listener)
         MyVolley.requestQueue.add(request)
     }
 
@@ -232,15 +233,15 @@ class MainActivity : AppCompatActivity() {
         val url = "https://www.reddit.com/top.json?limit=$limit"
         log("$tag reddit: url: $url")
         val request = MyRequest.create<String>()
-                .path(url)
-                .errorCode("12")
-                .useCache(false)
-                .get { response ->
-                    val end = System.nanoTime()
-                    val time = (end - start) / 1000_000f
-                    log(String.format("%s reddit timeElapsed %.3f ms thread: %s", tag, time, Thread.currentThread().name))
-                    listener.invoke(response)
-                }
+            .path(url)
+            .errorCode("12")
+            .useCache(false)
+            .get { response ->
+                val end = System.nanoTime()
+                val time = (end - start) / 1000_000f
+                log(String.format("%s reddit timeElapsed %.3f ms thread: %s", tag, time, Thread.currentThread().name))
+                listener.invoke(response)
+            }
         MyVolley.requestQueue.add(request)
     }
 
@@ -248,10 +249,10 @@ class MainActivity : AppCompatActivity() {
         val url = "https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch=top"
         log("$tag wikipedia: url: $url")
         val request = MyRequest.create<String>()
-                .path(url)
-                .errorCode("12")
-                .useCache(false)
-                .get(listener)
+            .path(url)
+            .errorCode("12")
+            .useCache(false)
+            .get(listener)
         MyVolley.requestQueue.add(request)
     }
 

@@ -6,15 +6,25 @@ import com.android.volley.Request
 import com.android.volley.Response.ErrorListener
 import com.android.volley.Response.Listener
 import com.android.volley.toolbox.HttpHeaderParser
-import java.io.UnsupportedEncodingException
+import timber.log.Timber
 import java.nio.charset.Charset
 
 /**
  * Volley adapter matching NetworkRequest builder. Must be subclassed to handle various content types and ORM parsing libraries.
  */
-abstract class BaseVolleyRequest<T>(method: Int, url: String, protected val cls: Class<T>, private val headers: Map<String, String>?,
-                                    private val priority: Priority, private val contentType: String, private val listener: Listener<T>?, errorListener: ErrorListener?)
-    : Request<T>(method, url, errorListener) {
+abstract class BaseVolleyRequest<T>(
+    method: Int,
+    url: String,
+    protected val cls: Class<T>,
+    private val headers: Map<String, String>?,
+    private val priority: Priority,
+    private val contentType: String,
+    private val listener: Listener<T>?,
+    errorListener: ErrorListener?
+) : Request<T>(method, url, errorListener) {
+
+    private var logTag: String? = null
+    private var logName: String? = null
 
     var bodyParams: Map<String, String>? = null
     //    private var params: Map<String, String>?
@@ -46,6 +56,17 @@ abstract class BaseVolleyRequest<T>(method: Int, url: String, protected val cls:
         return priority
     }
 
+    fun setLogging(tag: String, name: String?) {
+        this.logTag = tag
+        this.logName = name
+    }
+
+    fun logResponse(networkResponse: NetworkResponse) {
+        logTag?.let {
+            logNetworkResponse(it, logName, url, networkResponse)
+        }
+    }
+
     override fun toString(): String {
         return "${javaClass.simpleName}{ ${getRequestMethodName(method)} $url" +
                 ", cls=" + cls +
@@ -59,19 +80,32 @@ abstract class BaseVolleyRequest<T>(method: Int, url: String, protected val cls:
 
     companion object {
 
-        @Throws(UnsupportedEncodingException::class)
         fun createStringResponse(response: NetworkResponse): String {
             return String(response.data, Charset.forName(HttpHeaderParser.parseCharset(response.headers)))
         }
 
-        // see Request.Method in volley, these are the only ones we care about
-        fun getRequestMethodName(method: Int): String {
-            when (method) {
-                Request.Method.GET -> return "GET"
-                Request.Method.POST -> return "POST"
-                Request.Method.PUT -> return "PUT"
-                Request.Method.DELETE -> return "DELETE"
-                else -> return "UNKNOWN: " + method
+        private fun getRequestMethodName(method: Int): String {
+            // see Request.Method in volley, these are the only ones we care about
+            return when (method) {
+                Method.GET -> "GET"
+                Method.POST -> "POST"
+                Method.PUT -> "PUT"
+                Method.DELETE -> "DELETE"
+                else -> "UNKNOWN: $method"
+            }
+        }
+
+        fun logNetworkResponse(tag: String, name: String?, url: String, networkResponse: NetworkResponse) {
+            try {
+                val response = String(networkResponse.data, Charset.forName("UTF-8"))
+                Timber.tag(tag)
+                    .i("%sresponse(%d) %s", if (name == null) "" else "$name ", networkResponse.statusCode, url)
+                val headers = networkResponse.headers
+                for (key in headers.keys) {
+                    Timber.tag(tag).v("  %s: %s", key, headers[key])
+                }
+                Timber.tag(tag).v(response)
+            } catch (ex: Exception) {
             }
         }
     }

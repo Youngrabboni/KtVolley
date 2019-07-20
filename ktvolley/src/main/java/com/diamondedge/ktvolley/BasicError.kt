@@ -1,9 +1,13 @@
 package com.diamondedge.ktvolley
 
+import android.app.Activity
 import android.text.TextUtils
+import android.widget.Toast
+import androidx.fragment.app.Fragment
 import com.android.volley.NetworkResponse
+import com.android.volley.NoConnectionError
 import com.android.volley.VolleyError
-import java.lang.StringBuilder
+import timber.log.Timber
 
 open class BasicError : Exception, KtVolleyError {
 
@@ -11,6 +15,22 @@ open class BasicError : Exception, KtVolleyError {
     private val requestHeaders: Map<String, String>?
 
     final override val url: String
+
+    @JvmOverloads
+    constructor(
+        volleyError: VolleyError, url: String, requestBody: Any? = null,
+        requestHeaders: Map<String, String>? = null
+    ) : super(volleyError) {
+        this.url = url
+        this.requestBody = requestBody
+        this.requestHeaders = requestHeaders
+    }
+
+    constructor(throwable: Throwable?, url: String = "") : super(throwable) {
+        this.url = url
+        this.requestBody = null
+        this.requestHeaders = null
+    }
 
     override val exception: Exception
         get() = this
@@ -29,8 +49,11 @@ open class BasicError : Exception, KtVolleyError {
     override val message: String?
         get() = super.message
 
-    override fun toUserMessage(): String? {
-        return message
+    override val userMessage: String
+        get() = message ?: ""
+
+    override fun toString(): String {
+        return userMessage
     }
 
     override fun toLogString(): String {
@@ -58,8 +81,7 @@ open class BasicError : Exception, KtVolleyError {
         }
 
     override val responseBody: String
-        get()  {
-            return NetworkRequest.createStringResponse(volleyError?.networkResponse) }
+        get() = NetworkRequest.createStringResponse(volleyError?.networkResponse)
 
     val body: String
         get() {
@@ -70,16 +92,30 @@ open class BasicError : Exception, KtVolleyError {
             return s.toString()
         }
 
-    @JvmOverloads constructor(volleyError: VolleyError, url: String, requestBody: Any? = null,
-                              requestHeaders: Map<String, String>? = null) : super(volleyError) {
-        this.url = url
-        this.requestBody = requestBody
-        this.requestHeaders = requestHeaders
+    open fun createNoConnectionError(cause: NoConnectionError): BasicError {
+        return BasicError(cause)
     }
 
-    constructor(throwable: Throwable?, url: String = "") : super(throwable) {
-        this.url = url
-        this.requestBody = null
-        this.requestHeaders = null
+    fun show(fragment: Fragment) {
+        val activity = fragment.activity
+        if (activity == null || fragment.isDetached || fragment.isRemoving) {
+            return
+        }
+        show(activity)
+    }
+
+    open fun show(activity: Activity) {
+        val cause = cause
+        if (cause is NoConnectionError)
+            show(activity, createNoConnectionError(cause))
+        else
+            show(activity, this)
+    }
+
+    open fun show(activity: Activity, error: BasicError) {
+        Timber.i("show($this) $url")
+        if (activity.isFinishing || activity.isDestroyed)
+            return
+        Toast.makeText(activity, error.userMessage, Toast.LENGTH_LONG).show()
     }
 }

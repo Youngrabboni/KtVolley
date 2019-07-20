@@ -50,7 +50,7 @@ class LoganSquareVolleyRequest<T>(
     @Suppress("UNCHECKED_CAST")
     override fun parseNetworkResponse(response: NetworkResponse): Response<T> {
         try {
-            val strData = String(response.data, Charset.forName(HttpHeaderParser.parseCharset(response.headers)))
+            logResponse(response)
             responseStatusCode = response.statusCode
             val result = if (response.data == null || response.data.isEmpty()) {
                 //TODO: should this be null or newInstance()?

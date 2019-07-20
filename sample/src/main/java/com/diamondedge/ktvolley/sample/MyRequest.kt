@@ -3,6 +3,7 @@ package com.diamondedge.ktvolley.sample
 import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.VolleyError
+import com.diamondedge.ktvolley.BaseVolleyRequest
 import com.diamondedge.ktvolley.JacksonVolleyRequest
 import com.diamondedge.ktvolley.KtVolleyError
 import com.diamondedge.ktvolley.NetworkRequest
@@ -17,7 +18,18 @@ class MyRequest<T>(cls: Class<T>) : NetworkRequest<T>(cls) {
         return super.path(path) as MyRequest<T>
     }
 
-    override fun createVolleyRequest(httpVerb: Int, url: String, cls: Class<T>, priority: Request.Priority, contentType: String, headers: MutableMap<String, String>?, params: Map<String, String>?, body: Any?, listener: Response.Listener<T>, errorListener: Response.ErrorListener): Request<T> {
+    override fun createVolleyRequest(
+        httpVerb: Int,
+        url: String,
+        cls: Class<T>,
+        priority: Request.Priority,
+        contentType: String,
+        headers: MutableMap<String, String>?,
+        params: Map<String, String>?,
+        body: Any?,
+        listener: Response.Listener<T>,
+        errorListener: Response.ErrorListener
+    ): BaseVolleyRequest<T> {
         val request = JacksonVolleyRequest(httpVerb, url, cls, headers, priority, listener, errorListener)
         request.bodyParams = params
         request.setBody(body)

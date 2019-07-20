@@ -45,6 +45,7 @@ class JacksonVolleyRequest<T>(method: Int, url: String, cls: Class<T>, headers: 
     @Suppress("UNCHECKED_CAST")
     override fun parseNetworkResponse(response: NetworkResponse): Response<T> {
         try {
+            logResponse(response)
             val strData = String(response.data, Charset.forName(HttpHeaderParser.parseCharset(response.headers)))
             responseStatusCode = response.statusCode
 //            Log.i("JsonVolleyRequest", "parseNetworkResponse: " + strData.length / 1000 + "K " + getUrl())

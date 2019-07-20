@@ -8,6 +8,6 @@ interface KtVolleyError {
     val httpResponseCode: Int
     val exception: Exception
     val volleyError: VolleyError?
-    fun toUserMessage(): String?
+    val userMessage: String
     fun toLogString(): String
 }
