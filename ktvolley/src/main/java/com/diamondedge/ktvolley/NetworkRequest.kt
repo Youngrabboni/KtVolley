@@ -14,7 +14,7 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
 
     private var path: String = ""
     private var headers: MutableMap<String, String>? = null
-    private var queryParams: MutableMap<String, String>? = null
+    private var queryParams: MutableMap<String, Any>? = null
     private var bodyParams: MutableMap<String, String>? = null
     private var jsonBodyAttributes: MutableMap<String, Any>? = null
     private val acceptType = JSON_MEDIA_TYPE
@@ -27,8 +27,8 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
     private var body: Any? = null
     private var priority = Request.Priority.HIGH
     protected var isList = false
-    private var logtag: String? = null
-    private var logname: String? = null
+    private var logTag: String? = null
+    private var logName: String? = null
 
     private val url: String
         get() {
@@ -92,7 +92,7 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
         return this
     }
 
-    fun queryParam(name: String, value: String): NetworkRequest<T> {
+    fun queryParam(name: String, value: Any): NetworkRequest<T> {
         if (queryParams == null) {
             queryParams = HashMap()
         }
@@ -155,8 +155,8 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
     }
 
     fun logging(tag: String, name: String?): NetworkRequest<T> {
-        this.logtag = tag
-        this.logname = name
+        this.logTag = tag
+        this.logName = name
         return this
     }
 
@@ -250,9 +250,9 @@ abstract class NetworkRequest<T>(private val cls: Class<T>) {
         if (retryPolicy != null)
             request.retryPolicy = retryPolicy
 
-        logtag?.let { tag ->
-            request.setLogging(tag, logname)
-            logNetworkRequest(tag, logname, request)
+        logTag?.let { tag ->
+            request.setLogging(tag, logName)
+            logNetworkRequest(tag, logName, request)
         }
         return request
     }
